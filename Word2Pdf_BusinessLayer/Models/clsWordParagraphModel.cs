@@ -9,5 +9,9 @@ namespace Word2Pdf_BusinessLayer.Models
         public bool IsItalic { get; set; }
         public double FontSize { get; set; }
         public ParagraphAlignment Alignment { get; set; } = ParagraphAlignment.Left;
+
+        public bool IsNumbered { get; set; }
+        public int Number { get; set; }
+
     }
 }

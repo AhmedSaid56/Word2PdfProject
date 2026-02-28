@@ -4,6 +4,7 @@ using MigraDoc.DocumentObjectModel;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Word2Pdf_BusinessLayer.Models;
 using WParagraph = DocumentFormat.OpenXml.Wordprocessing.Paragraph;
@@ -72,6 +73,8 @@ namespace Word2Pdf_BusinessLayer
                     bool isBold = false;
                     bool isItalic = false;
                     double fontSize = 12; // default
+                    bool isNumbered = false;
+                    int number = 0;
                     ParagraphAlignment alignment = ParagraphAlignment.Left; // default alignment
 
                     if (paragraph.ParagraphProperties?.Justification?.Val != null)
@@ -104,6 +107,14 @@ namespace Word2Pdf_BusinessLayer
                             if (runProps.FontSize != null && double.TryParse(runProps.FontSize.Val, out double sz))
                                 fontSize = sz / 2.0;
                         }
+
+                        var numProps = paragraph.ParagraphProperties?.NumberingProperties;
+                        if (numProps != null && numProps.NumberingId != null)
+                        {
+                            isNumbered = true;
+                            number = model.Paragraphs.Count(p => p.IsNumbered) + 1;
+                        }
+
                     }
 
                     model.Paragraphs.Add(new clsWordParagraphModel
@@ -112,7 +123,9 @@ namespace Word2Pdf_BusinessLayer
                         IsBold = isBold,
                         IsItalic = isItalic,
                         FontSize = fontSize,
-                        Alignment = alignment
+                        Alignment = alignment,
+                        IsNumbered = isNumbered,
+                        Number = number
                     });
                 }
             }

@@ -1,4 +1,5 @@
-﻿using QuestPDF.Drawing;
+﻿using MigraDoc.DocumentObjectModel;
+using QuestPDF.Drawing;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -115,12 +116,12 @@ namespace Word2Pdf_BusinessLayer.Services
                 {
                     FontManager.RegisterFont(fontStream);
 
-                    Document.Create(container =>
+                    QuestPDF.Fluent.Document.Create(container =>
                     {
                         container.Page(page =>
                         {
                             page.Size(PageSizes.A4);
-                            page.Margin(2, Unit.Centimetre);
+                            page.Margin(2, QuestPDF.Infrastructure.Unit.Centimetre);
 
                             page.DefaultTextStyle(x =>
                                 x.FontFamily("Cairo").FontSize(12)
@@ -132,7 +133,12 @@ namespace Word2Pdf_BusinessLayer.Services
                                 {
                                     col.Item().Text(text =>
                                     {
-                                        var fixedText = FixArabicNumbers(paragraph.Text);
+                                        string finalText = paragraph.Text;
+
+                                        if (paragraph.IsNumbered)
+                                            finalText = $"{paragraph.Number}. {finalText}";
+
+                                        var fixedText = FixArabicNumbers(finalText);
                                         var span = text.Span(fixedText);
 
                                         if (paragraph.IsBold)
@@ -143,10 +149,25 @@ namespace Word2Pdf_BusinessLayer.Services
 
                                         span.FontSize((float)paragraph.FontSize);
 
-                                        if (IsArabic(paragraph.Text))
-                                            text.AlignRight();
-                                        else
-                                            text.AlignLeft();
+                                        switch (paragraph.Alignment)
+                                        {
+                                            case ParagraphAlignment.Center:
+                                                text.AlignCenter();
+                                                break;
+
+                                            case ParagraphAlignment.Right:
+                                                text.AlignRight();
+                                                break;
+
+                                            case ParagraphAlignment.Justify:
+                                                text.Justify();
+                                                break;
+
+                                            default:
+                                                text.AlignLeft();
+                                                break;
+                                        }
+
                                     });
 
                                     col.Item().PaddingBottom(5);
@@ -166,6 +187,7 @@ namespace Word2Pdf_BusinessLayer.Services
                     })
                     .GeneratePdf(outputPath);
                 }
+
             });
         }
 
