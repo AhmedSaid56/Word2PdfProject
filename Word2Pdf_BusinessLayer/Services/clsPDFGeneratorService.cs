@@ -6,6 +6,7 @@ using QuestPDF.Infrastructure;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Word2Pdf_BusinessLayer.Models;
 
@@ -15,28 +16,6 @@ namespace Word2Pdf_BusinessLayer.Services
     {
 
         #region Helper Methods
-        private static bool IsArabic(string text)
-        {
-            foreach (char c in text)
-            {
-                if (c >= 0x0600 && c <= 0x06FF)
-                    return true;
-            }
-            return false;
-        }
-
-        private static string FixArabicNumbers(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-                return text;
-
-            if (IsArabic(text) && char.IsDigit(text.TrimStart()[0]))
-            {
-                return "\u200F" + text;
-            }
-
-            return text;
-        }
 
         private static void OpenPdfFile(string pdfPath)
         {
@@ -131,46 +110,61 @@ namespace Word2Pdf_BusinessLayer.Services
                             {
                                 foreach (var paragraph in model.Paragraphs)
                                 {
-                                    col.Item().Text(text =>
+                                    col.Item().Element(e =>
                                     {
-                                        string finalText = paragraph.Text;
 
-                                        if (paragraph.IsNumbered)
-                                            finalText = $"{paragraph.Number}. {finalText}";
+                                        bool hasArabic = paragraph.Text.Any(c => c >= 0x0600 && c <= 0x06FF);
+                                        bool hasNumber = paragraph.IsNumbered; 
 
-                                        var fixedText = FixArabicNumbers(finalText);
-                                        var span = text.Span(fixedText);
+                                        string finalText;
 
-                                        if (paragraph.IsBold)
-                                            span.Bold();
-
-                                        if (paragraph.IsItalic)
-                                            span.Italic();
-
-                                        span.FontSize((float)paragraph.FontSize);
-
-                                        switch (paragraph.Alignment)
+                                        if (hasArabic)
                                         {
-                                            case ParagraphAlignment.Center:
-                                                text.AlignCenter();
-                                                break;
-
-                                            case ParagraphAlignment.Right:
-                                                text.AlignRight();
-                                                break;
-
-                                            case ParagraphAlignment.Justify:
-                                                text.Justify();
-                                                break;
-
-                                            default:
-                                                text.AlignLeft();
-                                                break;
+                                            if (paragraph.Number > 0)
+                                            {
+                                                finalText = "\u202B" + $"{paragraph.Number}. {paragraph.Text.TrimStart()}";
+                                            }
+                                            else
+                                            {
+                                                finalText = "\u202B" + paragraph.Text.TrimStart(); // نص عربي فقط RTL
+                                            }
+                                        }
+                                        else if (hasNumber)
+                                        {
+                                            if (paragraph.Number > 0)
+                                                finalText = $"{paragraph.Number}. {paragraph.Text}";
+                                            else
+                                                finalText = paragraph.Text;
+                                        }
+                                        else
+                                        {
+                                            finalText = paragraph.Text;
                                         }
 
+                                        e.Text(text =>
+                                        {
+                                            var span = text.Span(finalText)
+                                                           .FontFamily("Cairo")
+                                                           .FontSize((float)paragraph.FontSize);
+
+                                            if (paragraph.IsBold) span.Bold();
+                                            if (paragraph.IsItalic) span.Italic();
+
+                                            if (hasArabic)
+                                                text.AlignRight();
+                                            else
+                                            {
+                                                switch (paragraph.Alignment)
+                                                {
+                                                    case ParagraphAlignment.Center: text.AlignCenter(); break;
+                                                    case ParagraphAlignment.Right: text.AlignRight(); break;
+                                                    case ParagraphAlignment.Justify: text.Justify(); break;
+                                                    default: text.AlignLeft(); break;
+                                                }
+                                            }
+                                        });
                                     });
 
-                                    col.Item().PaddingBottom(5);
                                 }
                             });
 
@@ -187,7 +181,6 @@ namespace Word2Pdf_BusinessLayer.Services
                     })
                     .GeneratePdf(outputPath);
                 }
-
             });
         }
 
